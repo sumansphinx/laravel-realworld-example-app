@@ -1,0 +1,54 @@
+name: Deploy to AWS EC2
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Install SonarQube Scanner (if not pre-installed)
+      - name: Install SonarQube Scanner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-11-jdk # SonarQube requires Java
+          curl -fsSL -o sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
+          unzip sonar-scanner.zip -d /opt
+          export PATH="/opt/sonar-scanner-4.8.0.2856-linux/bin:$PATH"
+
+      # Step 3: Analyze Code with SonarQube
+      - name: Analyze Code with SonarQube
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_LOGIN: ${{ secrets.SONAR_LOGIN }}
+        run: |
+          sonar-scanner \
+          -Dsonar.projectKey=your-project-key \
+          -Dsonar.host.url=$SONAR_HOST_URL \
+          -Dsonar.login=$SONAR_LOGIN
+
+      # Step 4: Deploy to EC2
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          script: |
+            # Ensure directory is clean
+            
+                        
+            # Transfer files from GitHub runner
+            scp -o StrictHostKeyChecking=no -i /github/home/.ssh/id_rsa -r $GITHUB_WORKSPACE/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/devops.sphinxworldbiz.net
+            
+            # Set permissions
+            sudo chown -R www-data:www-data /var/www/devops.sphinxworldbiz.net
+            
+            # Restart Apache server
+            sudo systemctl restart apache2
