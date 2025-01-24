@@ -22,6 +22,13 @@ jobs:
         php-version: '8.1' # Adjust based on your PHP version
         extensions: mbstring, intl, curl, mysql
 
+        # Step 2: Set up Java
+    - name: Set up Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'adoptopenjdk'  # Or 'openjdk', 'zulu', etc.
+        java-version: '17'            # Specify the Java version (e.g., '11', '17')
+
     # Step 3: Install dependencies (if using Composer)
     - name: Install Dependencies
       run: |
