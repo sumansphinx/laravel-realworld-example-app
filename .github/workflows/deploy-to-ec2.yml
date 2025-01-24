@@ -1,0 +1,66 @@
+name: CI/CD Pipeline with SonarQube and EC2 Deployment
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the 'main' branch
+
+jobs:
+  sonarqube-analysis:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Setup Java (required for Sonar Scanner)
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'  # Specify the required Java version
+
+      # Step 3: Run Sonar Scanner
+      - name: Run SonarQube Scanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=your_project_key \
+            -Dsonar.host.url=https://your-sonarqube-server \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+  deploy:
+    name: Deploy to AWS EC2
+    needs: sonarqube-analysis  # Run after SonarQube analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up SSH agent and add the private key
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      # Step 3: Push code to EC2
+      - name: Deploy code to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            # Navigate to the application directory
+            cd /path/to/your/app || git clone https://github.com/your-repo-url /path/to/your/app
+            cd /path/to/your/app
+
+            # Pull the latest changes
+            git pull
+
+            # (Optional) Run application build or setup
+            ./build-or-setup.sh
+
+            # Restart application or services
+            ./restart-script.sh
+          EOF
