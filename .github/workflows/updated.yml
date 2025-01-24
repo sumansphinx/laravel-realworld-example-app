@@ -45,14 +45,24 @@ jobs:
     - name: Deploy application to EC2
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-        # Navigate to the web application directory
-        cd /var/www/html
+        # Ensure the application directory exists
+        if [ ! -d /var/www/html ]; then
+          mkdir -p /var/www/html
+          cd /var/www/html
+          git init
+          git remote add origin git@github.com:your-org/your-repo.git
+        else
+          cd /var/www/html
+        fi
 
-        # Pull the latest code from GitHub repository
-        git pull origin main
+        # Pull the latest changes from GitHub
+        git fetch origin
+        git reset --hard origin/main
 
-        # Install dependencies (if applicable)
-        composer install --no-dev --optimize-autoloader
+        # Install dependencies if applicable
+        if [ -f composer.json ]; then
+          composer install --no-dev --optimize-autoloader
+        fi
 
         # Restart the web server (Apache/Nginx)
         sudo systemctl restart apache2 || sudo systemctl restart nginx
