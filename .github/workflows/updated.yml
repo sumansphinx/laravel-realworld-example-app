@@ -1,0 +1,59 @@
+name: Build and Deploy PHP Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout code from GitHub repository
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Step 2: Set up JDK 17 (if required for SonarScanner)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+
+    # Step 3: Install Sonar Scanner
+    - name: Install Sonar Scanner
+      run: |
+        curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o sonar-scanner.zip
+        unzip sonar-scanner.zip
+        mv sonar-scanner-*/ sonar-scanner
+        echo "PATH=$(pwd)/sonar-scanner/bin:$PATH" >> $GITHUB_ENV
+
+    # Step 4: Run Sonar Scanner
+    - name: Run Sonar Scanner
+      run: sonar-scanner
+      env:
+        SONAR_HOST_URL: "http://203.122.42.162:9000/"
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    # Step 5: Set up SSH agent to connect to EC2
+    - name: Set up SSH agent
+      uses: webfactory/ssh-agent@v0
+      with:
+        ssh-private-key: ${{ secrets.EC2_KEY }}
+
+    # Step 6: Deploy the application to EC2
+    - name: Deploy application to EC2
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+        # Navigate to the web application directory
+        cd /var/www/html
+
+        # Pull the latest code from GitHub repository
+        git pull origin main
+
+        # Install dependencies (if applicable)
+        composer install --no-dev --optimize-autoloader
+
+        # Restart the web server (Apache/Nginx)
+        sudo systemctl restart apache2 || sudo systemctl restart nginx
+        EOF
